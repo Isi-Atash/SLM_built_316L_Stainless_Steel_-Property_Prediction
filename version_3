@@ -1,0 +1,90 @@
+# Importing necessary libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from keras.models import Model, load_model
+from keras.layers import Input, Dense
+from keras.optimizers import Adam
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+# Function to process target values with uncertainty
+def process_target_values(column):
+    central_values = []
+    variance_values = []
+
+    for value in column:
+        if '±' in value:
+            central, variance = value.split('±')
+            central_values.append(float(central.strip()))
+            variance_values.append(float(variance.strip()))
+
+    return pd.DataFrame(central_values), pd.DataFrame(variance_values)
+
+# Load the dataset
+file_path = r'D:\Repos\SLM_built_316L_Stainless_Steel_ Property_Prediction\doc\Project.xlsx'
+df_training = pd.read_excel(file_path, sheet_name='Training Data')
+df_test = pd.read_excel(file_path, sheet_name='Test Data')
+
+# Extracting features and target values
+x_train = df_training.iloc[:, 1:5]
+x_test = df_test.iloc[:, 1:5]
+
+y_surface_train, y_surface_variance_train = process_target_values(df_training.iloc[:, 5])
+y_surface_test, y_surface_variance_test = process_target_values(df_test.iloc[:, 5])
+
+y_density_train, y_density_variance_train = process_target_values(df_training.iloc[:, 6])
+y_density_test, y_density_variance_test = process_target_values(df_test.iloc[:, 6])
+
+# Normalizing input features
+scaler = MinMaxScaler()
+x_train_scaled = scaler.fit_transform(x_train)
+x_test_scaled = scaler.transform(x_test)
+
+# Function to build neural network model
+def build_model(input_shape):
+    x_input = Input(shape=(input_shape,), name="x_input")
+    x = Dense(32, activation="relu")(x_input)
+    x = Dense(64, activation="relu")(x)
+    x = Dense(32, activation="relu")(x)
+    output = Dense(1)(x)
+    model = Model(x_input, output)
+    model.compile(optimizer=Adam(learning_rate=0.001), loss="mse")
+    return model
+
+# Function to train and evaluate model
+def train_evaluate_model(model, x_train, y_train, x_test, y_test, batch_size, epochs):
+    history = model.fit(x_train, y_train, validation_data=(x_test, y_test), epochs=epochs, batch_size=batch_size, verbose=True)
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Model Loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Validation'], loc='upper right')
+    plt.show()
+
+    y_pred = model.predict(x_test).flatten()  # Flatten the predictions
+    y_test_flat = y_test.values.flatten()     # Flatten the true values if it's a DataFrame
+
+    mse = mean_squared_error(y_test_flat, y_pred)
+    mae = mean_absolute_error(y_test_flat, y_pred)
+    r2 = r2_score(y_test_flat, y_pred)
+
+    print(f"Mean Squared Error (MSE): {mse}")
+    print(f"Mean Absolute Error (MAE): {mae}")
+    print(f"R-squared (R2): {r2}")
+
+    plt.scatter(y_test_flat, y_pred)
+    plt.xlabel('True Values')
+    plt.ylabel('Predicted Values')
+    plt.title('True vs Predicted Values')
+    # Adjust the plotting line for min and max values
+    plt.plot([min(y_test_flat), max(y_test_flat)], [min(y_pred), max(y_pred)], linestyle='--', color='red', linewidth=2)
+    plt.show()
+
+# Building and training models for surface roughness and density
+model_surface = build_model(x_train_scaled.shape[1])
+train_evaluate_model(model_surface, x_train_scaled, y_surface_train, x_test_scaled, y_surface_test, 50, 500)
+
+model_density = build_model(x_train_scaled.shape[1])
+train_evaluate_model(model_density, x_train_scaled, y_density_train, x_test_scaled, y_density_test, 20, 1000)

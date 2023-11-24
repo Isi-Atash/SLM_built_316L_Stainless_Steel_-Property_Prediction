@@ -1,0 +1,290 @@
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import cross_validate
+from sklearn.kernel_ridge import KernelRidge
+from sklearn.metrics import r2_score
+
+# And now let's load the requisite Python pacakges
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+import json
+import math, random
+from scipy.sparse import load_npz
+from matplotlib.colors import LinearSegmentedColormap
+import time
+
+import io
+# Load the dataset
+file_path = r'D:\Repos\SLM_built_316L_Stainless_Steel_ Property_Prediction\doc\Project.xlsx'
+df = pd.read_excel(file_path)
+
+# Loading the data from the correct sheets
+df_training = pd.read_excel(file_path, sheet_name='Training Data')
+df_test = pd.read_excel(file_path, sheet_name='Test Data')
+
+df_training.head(5)
+
+x_train=df_training.iloc[:, 1:5]
+x_train.head(5)
+
+y_surface_train=df_training.iloc[:, 5:6]
+
+y_central1 = []
+y_variance1 = []
+
+for value in y_surface_train.iloc[:, 0]:
+    if '±' in value:
+        parts = value.split('±')
+        central_part = parts[0].strip()  # Remove leading/trailing spaces
+        variance_part = parts[1].strip()  # Remove leading/trailing spaces
+        try:
+            central_value = float(central_part)
+            variance = float(variance_part)
+            y_central1.append(central_value)
+            y_variance1.append(variance)
+        except ValueError:
+            pass
+
+y_surface_train_central = pd.DataFrame(y_central1, columns=['Surface Roughness (μm)'])
+y_surface_train_central.head(5)
+
+x_test=df_test.iloc[:, 1:5]
+x_test.head(5)
+
+y_surface_test=df_test.iloc[:, 5:6]
+
+y_central2 = []
+y_variance2 = []
+
+for value in y_surface_test.iloc[:, 0]:
+    if '±' in value:
+        parts = value.split('±')
+        central_part = parts[0].strip()  # Remove leading/trailing spaces
+        variance_part = parts[1].strip()  # Remove leading/trailing spaces
+        try:
+            central_value = float(central_part)
+            variance = float(variance_part)
+            y_central2.append(central_value)
+            y_variance2.append(variance)
+        except ValueError:
+            pass
+print(y_central2)
+y_surface_test_central = pd.DataFrame(y_central2, columns=['Surface Roughness (μm)'])
+y_surface_test_central.head(5)
+
+import matplotlib.pyplot as plt
+
+# Tensorflow as backend for keras (see below)
+import tensorflow as tf
+
+# Keras for neural networks
+from keras.models import load_model
+from keras.layers import Input, Dense, Dropout
+from keras.models import Model, load_model
+from keras.callbacks import EarlyStopping
+
+# other packages
+import os
+import numpy as np
+from collections import Counter
+
+# sklearn
+from sklearn.metrics import r2_score, mean_absolute_error, mean_absolute_percentage_error
+from sklearn.model_selection import KFold
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+# pandas
+import pandas as pd
+
+# json
+import json
+from sklearn.preprocessing import MinMaxScaler
+
+# Normalize input features
+scaler = MinMaxScaler()
+x_train = scaler.fit_transform(x_train)
+x_test = scaler.transform(x_test)
+
+# Define the size of the input layer.
+n_feat = x_train.shape[1]
+x_input = Input(shape=(n_feat,), name="x_input")
+x = Dense(32, activation="relu")(x_input)
+
+x = Dense(64, activation="relu")(x)
+
+x = Dense(32, activation="relu")(x)
+
+output = Dense(1)(x)
+
+model = Model(x_input, output)
+model.compile(optimizer = "adam", loss=["mse"]) 
+
+batch_size = 50
+epochs = 500
+
+from keras.optimizers import Adam
+
+custom_optimizer = Adam(learning_rate=0.001)
+
+divie_data_set_by=1
+
+# Note the model fit statement below, and how the validation data set is used.
+print(model.summary())
+history = model.fit(x_train[::divie_data_set_by], y_surface_train_central[::divie_data_set_by],
+                    validation_data = (x_test[::divie_data_set_by], y_surface_test_central[::divie_data_set_by]),
+                    epochs=epochs, batch_size=batch_size, verbose=True)
+
+# Plot training & validation loss values
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('Model Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend(['Train', 'Validation'], loc='upper right')
+plt.show()
+
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+# Make predictions using the trained model
+y_pred = model.predict(x_test)
+
+# Assuming y_surface_test_central contains the true labels for the test set
+y_true = y_surface_test_central.values  # Convert to NumPy array if it's a Pandas Series
+
+# Now you can calculate regression metrics
+mse = mean_squared_error(y_true, y_pred)
+mae = mean_absolute_error(y_true, y_pred)
+r2 = r2_score(y_true, y_pred)
+
+print(f"Mean Squared Error (MSE): {mse}")
+print(f"Mean Absolute Error (MAE): {mae}")
+print(f"R-squared (R2): {r2}")
+
+import matplotlib.pyplot as plt
+
+plt.scatter(y_true, y_pred)
+plt.xlabel('True Values')
+plt.ylabel('Predicted Values')
+plt.title('True vs Predicted Values')
+plt.plot([min(y_true), max(y_true)], [min(y_true), max(y_true)], linestyle='--', color='red', linewidth=2)
+plt.show()  
+
+y_density_train=df_training.iloc[:, 6]
+
+y_central1 = []
+y_variance1 = []
+
+for value in y_density_train:
+    if '±' in value:
+        parts = value.split('±')
+        central_part = parts[0].strip()  # Remove leading/trailing spaces
+        variance_part = parts[1].strip()  # Remove leading/trailing spaces
+        try:
+            central_value = float(central_part)
+            variance = float(variance_part)
+            y_central1.append(central_value)
+            y_variance1.append(variance)
+        except ValueError:
+            pass
+
+y_density_train_central = pd.DataFrame(y_central1, columns=['Relative Density (%)'])
+y_density_train_central.head(5)
+
+y_density_test=df_test.iloc[:, 6]
+
+y_central2 = []
+y_variance2 = []
+
+for value in y_density_test:
+    if '±' in value:
+        parts = value.split('±')
+        central_part = parts[0].strip()  # Remove leading/trailing spaces
+        variance_part = parts[1].strip()  # Remove leading/trailing spaces
+        try:
+            central_value = float(central_part)
+            variance = float(variance_part)
+            y_central2.append(central_value)
+            y_variance2.append(variance)
+        except ValueError:
+            pass
+print(y_central2)
+y_density_test_central = pd.DataFrame(y_central2, columns=['Relative Density (%)'])
+y_density_test_central.head(5)
+
+from sklearn.preprocessing import MinMaxScaler
+
+x_train=df_training.iloc[:, 1:5]
+
+x_test=df_test.iloc[:, 1:5]
+
+
+# Normalize input features
+scaler = MinMaxScaler()
+x_train = scaler.fit_transform(x_train)
+x_test = scaler.transform(x_test)
+
+# Define the size of the input layer.
+n_feat = x_train.shape[1]
+x_input = Input(shape=(n_feat,), name="x_input")
+x = Dense(32, activation="relu")(x_input)
+
+x = Dense(64, activation="relu")(x)
+
+x = Dense(32, activation="relu")(x)
+
+output = Dense(1)(x)
+
+model = Model(x_input, output)
+model.compile(optimizer = "adam", loss=["mse"])
+
+batch_size = 20
+epochs = 1000
+
+from keras.optimizers import Adam
+
+custom_optimizer = Adam(learning_rate=0.001)
+
+divie_data_set_by=1
+
+# Note the model fit statement below, and how the validation data set is used.
+print(model.summary())
+history = model.fit(x_train[::divie_data_set_by], y_density_train_central[::divie_data_set_by],
+                    validation_data = (x_test[::divie_data_set_by], y_density_test_central[::divie_data_set_by]),
+                    epochs=epochs, batch_size=batch_size, verbose=True)
+
+# Plot training & validation loss values
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('Model Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend(['Train', 'Validation'], loc='upper right')
+plt.show()
+
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+# Make predictions using the trained model
+y_pred = model.predict(x_test)
+
+# Assuming y_surface_test_central contains the true labels for the test set
+y_true = y_density_test_central.values  # Convert to NumPy array if it's a Pandas Series
+
+# Now you can calculate regression metrics
+mse = mean_squared_error(y_true, y_pred)
+mae = mean_absolute_error(y_true, y_pred)
+r2 = r2_score(y_true, y_pred)
+
+print(f"Mean Squared Error (MSE): {mse}")
+print(f"Mean Absolute Error (MAE): {mae}")
+print(f"R-squared (R2): {r2}")
+
+import matplotlib.pyplot as plt
+
+plt.scatter(y_true, y_pred)
+plt.xlabel('True Values')
+plt.ylabel('Predicted Values')
+plt.title('True vs Predicted Values')
+plt.plot([min(y_true), max(y_true)], [min(y_true), max(y_true)], linestyle='--', color='red', linewidth=2)
+plt.show()
